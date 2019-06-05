@@ -1,0 +1,29 @@
+<div class="container">
+    <div class="row">
+        <div class="col col-md mt-2">
+            <h1 class="mb-3">Welcome to Crossotron</h1>
+            <p>Welcome to Crossotron! Input a pattern below to search from {{count}} words!</p>
+            <h3 class="mb-4">Input Format</h3>
+            <div class="input-group mb-3">
+                <div class="col">
+                    <form>
+                        <input name="pattern" class="form-control mb-3" placeholder="e.g. B001" type="text"
+                            [(ngModel)]="pattern" />
+                        <input type="submit" value="Search" class="btn btn-primary mr-2" (click)="getWords()" />
+                        <button class="btn btn-warning" (click)="clearWords()">Clear Words</button>
+                    </form>
+                </div>
+            </div>
+            <div *ngIf="live">
+                <h4 class="mb-2">Success! Returned {{words.length}} words!</h4>
+                <div *ngFor="let word of words" class="ml-2">
+                    <p>{{word}}</p>
+                </div>
+            </div>
+            <div *ngIf="err">
+                <h4 class="mb-2">{{err}}</h4>
+            </div>
+            <p class="bottom mt-2">Code copywrite T. Brundige Jones 2019. Words copywrite wordfrequency.info among others. Proper nouns copywrite their respective owners. <a href="https://github.com/DrBrundige">My GitHub</a></p>
+        </div>
+    </div>
+</div>
