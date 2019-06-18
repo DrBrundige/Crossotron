@@ -6,5 +6,6 @@ module.exports = (app) => {
 	app.post('/xwords', XWords.create);
 	app.get('/xwords/:word', XWords.show);
 	app.put('/xwords/:word', XWords.update);
+	app.put('/xwords/', XWords.updateAll);
 	app.delete('/xwords/:word', XWords.destroy);
 };

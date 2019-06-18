@@ -15,8 +15,8 @@ client.connect();
 
 function scrubWord(str) {
 	// console.log("Converting to uppercase and removing all punctuation and digits from " + str);
-	console.log(typeof(str));
-	
+	// console.log(typeof(str));
+
 	str = str.toUpperCase();
 	var newWord = "";
 	for (let x = 0; x < str.length; x++) {
@@ -35,7 +35,7 @@ function scrubWord(str) {
 	return newWord;
 }
 function parseChars(str) {
-	console.log("Creating an array of each character in: " + str);
+	// console.log("Creating an array of each character in: " + str);
 	var arr = [];
 	for (let x = 0; x < str.length; x++) {
 		arr.push(str.charAt(x));
@@ -43,20 +43,26 @@ function parseChars(str) {
 	return arr;
 }
 function parseVowels(str) {
-	console.log("Creating an array of whether each char is a consonant or vowel for: "+ str);
+	// console.log("Creating an array of whether each char is a consonant or vowel for: "+ str);
 	var arr = []
+	var numvow = 0;
+	var numcon = 0;
 	for (let x = 0; x < str.length; x++) {
-		console.log(str.charAt(x));
+		// console.log(str.charAt(x));
 
 		switch (str.charAt(x)) {
 			case "A": case "E": case "I": case "O": case "U":
 				arr.push(0);
+				numvow += 1;
 				break;
 			default:
 				arr.push(1);
+				numcon += 1;
 				break;
 		}
 	}
+	arr.push(numcon);
+	arr.push(numvow);
 	return arr;
 }
 function parseSearchStr(str) {
@@ -64,7 +70,9 @@ function parseSearchStr(str) {
 	for (let x = 0; x < str.length; x++) {
 		if (str.charAt(x) == '0' || str.charAt(x) == '1') {
 			q += "vowels[" + (x + 1) + "] = " + str.charAt(x) + " AND ";
-		} else {
+		} else if(str.charAt(x) == '2'){
+			// Do nothing
+		}	else {
 			q += "chars[" + (x + 1) + "] = '" + str.charAt(x) + "' AND ";
 		}
 	}
@@ -72,21 +80,28 @@ function parseSearchStr(str) {
 }
 function createWord(word, que, x) {
 
-	let text = ' ($' + x + ', $' + (x + 1) + ', $' + (x + 2) + ', $' + (x + 3) + '),';
+	let text = ` ($${x}, $${x + 1}, $${x + 2}, $${x + 3}, $${x + 4}, $${x + 5}),`;
 	que.text += text;
 	que.values.push(word);
-	que.values.push(parseChars(word));
-	que.values.push(parseVowels(word));
 	que.values.push(word.length);
+	var vowels = parseVowels(word);
+	que.values.push(vowels.pop());
+	que.values.push(vowels.pop());
+	que.values.push(vowels);
+	que.values.push(parseChars(word));
 	return que;
 }
 
 function createUpdate(word, que) {
 
+	// var values = [];
 	que.values.push(word);
-	que.values.push(parseVowels(word));
-	que.values.push(parseChars(word));
 	que.values.push(word.length);
+	var vowels = parseVowels(word);
+	que.values.push(vowels.pop());
+	que.values.push(vowels.pop());
+	que.values.push(vowels);
+	que.values.push(parseChars(word));
 	return que;
 }
 
@@ -159,32 +174,41 @@ module.exports = {
 	create: (req, res) => {
 		// que, the query, this will be added to 
 		var que = {
-			'text': "insert into xwords (word, chars, vowels, length) VALUES",
+			'text': "insert into xwords (word, length, numvow, numcon, vowels, chars) VALUES",
 			'values': []
-		}
+		};
 		if (req.body['word']) {
 			console.log("Attempting to create single new word", req.body['word']);
-			let word = scrubWord(req.body['word'][0]);
-			que = createWord(word, que, 1);
-		}
-		if (req.body['words']) {
+			var word = scrubWord(req.body['word']);
+			que = createWord(word, que);
+		} else if (req.body['words']) {
 			console.log("Attempting to create new words by list", req.body['words']);
 			let x = 1;
 			req.body['words'].forEach(w => {
 				let word = scrubWord(w);
 				que = createWord(word, que, x);
-				x += 4;
+				x += 6;
 			});
+		} else {
+			console.log("Could not create new words! Request did not contain 'word' or 'words' object!");
+			res.json({ message: true, err: "Could not create new words! Request did not contain 'word' or 'words' object!" });
+			return;
 		}
 		// Takes off the comma added to the end of the query
 		que.text = que.text.slice(0, que.text.length - 1);
+		que.text += " ON CONFLICT DO NOTHING;";
+		console.log("Calling DB with query: " + que.text);
 
 		client.query(que.text, que.values, (err, data) => {
 			if (err) {
 				console.log("Creation attempt errant!", err);
 				res.json({ message: false, err: err });
 			} else {
-				// console.log("Creation attempt unerring!");
+				if (req.body['word']) {
+					console.log("Creation attempt unerring! Word: " + word + " added");
+				} else {
+					console.log("Creation attempt unerring! Added " + data.rowCount + " words");
+				}
 				res.json({ message: true, data: data });
 			}
 		});
@@ -192,15 +216,16 @@ module.exports = {
 	update: (req, res) => {
 
 		var word = scrubWord(req.body.word);
-		console.log(getFormattedDate() + " | Updating " + req.params.word + " to " + word);
+		console.log(getFormattedDate() + " | Updating " + req.params.word);
 
 		var que = {
-			'text': "UPDATE xwords SET word = $1, vowels=$2, chars=$3, length=$4 WHERE word=$5",
+			'text': "UPDATE xwords SET word=$1, length=$2, numvow = $3, numcon = $4, vowels = $5, chars = $6 WHERE word = $7",
 			'values': []
 		};
 
 		que = createUpdate(word, que);
 		que.values.push(req.params.word);
+		console.log("Calling DB with query: " + que.values);
 
 		client.query(que.text, que.values, (err, data) => {
 			if (err) {
@@ -211,6 +236,52 @@ module.exports = {
 				res.json({ message: true, data: data });
 			}
 		});
+	},
+	updateAll: (req, res) => {
+
+		console.log(getFormattedDate() + " | Updating all words");
+		if (req.body.password == "a18f44b8141622b27ec9") {
+			client.query('SELECT word FROM xwords ORDER BY word', (err, data) => {
+				if (err) {
+					console.log("Errant request!", err);
+					res.json({ message: false, data: err });
+				} else {
+					// Extracts each word from its dictionary and adds it to an array
+					var successes = 0;
+					var failures = 0;
+					data.rows.forEach(word => {
+
+						// word.word
+						let thisWord = scrubWord(word.word);
+						let que = {
+							'text': "UPDATE xwords SET word=$1, length=$2, numvow = $3, numcon = $4, vowels = $5, chars = $6 WHERE word = $7",
+							'values': []
+						};
+
+						que = createUpdate(thisWord, que);
+						que.values.push(thisWord);
+
+						client.query(que.text, que.values, (err, data) => {
+							console.log(successes);
+
+							if (err) {
+								successes += 1;
+								// console.log("Update attempt errant!", err);
+								// res.json({ message: false, err: err });
+							} else {
+								failures += 1;
+								// console.log("Update attempt unerring!");
+								// res.json({ message: true, data: data });
+							}
+						});
+					});
+					res.json({ message: true, successes: successes, failures: failures });
+				}
+			});
+		} else {
+			var message = { message: "Password incorrect!" };
+			res.json({ message: false, err: message });
+		}
 	},
 	destroy: (req, res) => {
 		const word = req.params.word;
