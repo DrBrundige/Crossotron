@@ -44,7 +44,7 @@ function parseChars(str) {
 }
 function parseVowels(str) {
 	// console.log("Creating an array of whether each char is a consonant or vowel for: "+ str);
-	var arr = []
+	var arr = [];
 	var numvow = 0;
 	var numcon = 0;
 	for (let x = 0; x < str.length; x++) {
@@ -70,9 +70,9 @@ function parseSearchStr(str) {
 	for (let x = 0; x < str.length; x++) {
 		if (str.charAt(x) == '0' || str.charAt(x) == '1') {
 			q += "vowels[" + (x + 1) + "] = " + str.charAt(x) + " AND ";
-		} else if(str.charAt(x) == '2'){
+		} else if (str.charAt(x) == '2') {
 			// Do nothing
-		}	else {
+		} else {
 			q += "chars[" + (x + 1) + "] = '" + str.charAt(x) + "' AND ";
 		}
 	}
@@ -135,11 +135,11 @@ module.exports = {
 				res.json({ message: false, data: err });
 			} else {
 				// Extracts each word from its dictionary and adds it to an array
-				var words = []
+				var words = [];
 				data.rows.forEach(word => {
-					words.push(word.word)
+					words.push(word.word);
 				});
-				res.json({ message: true, words: words });
+				res.json({ message: true, count: data.rowCount, words: words });
 			}
 		});
 	},
@@ -163,11 +163,59 @@ module.exports = {
 				// console.log("Success! Returning data!");
 				// Extracts each word from its dictionary and adds it to an array
 
-				var words = []
+				var words = [];
 				data.rows.forEach(word => {
-					words.push(word.word)
+					words.push(word.word);
 				});
-				res.json({ message: true, words: words });
+				res.json({ message: true, count: data.rowCount, words: words });
+			}
+		});
+	},
+	getWordsVow: (req, res) => {
+		var str = req.params.str.toUpperCase();
+		var v = req.params.v.toUpperCase();
+		var c = req.params.c.toUpperCase();
+		console.log(getFormattedDate() + ` | Finding words that match pattern ${str} and have ${v} vowel(s) and ${c} consonant(s)`);
+
+		var q = 'SELECT word FROM xwords ';
+		q += parseSearchStr(str);
+		if(c > -1){
+			q += 'numcon = ' + c + " AND ";
+		}
+		if(v > -1){
+			q += 'numvow = ' + v + " AND ";
+		}
+		q += 'length = ' + str.length;
+		q += ' ORDER BY word ASC';
+
+		client.query(q, (err, data) => {
+			if (err) {
+				console.log("Errant request!", err);
+				res.json({ message: false, data: err });
+			} else if (data.rowCount <= 0) {
+				// console.log("Query successful but no rows were found!");
+				res.json({ message: false, err: "Query successful but no rows were returned for pattern '" + str + "'!" });
+			} else {
+				// console.log("Success! Returning data!");
+				// Extracts each word from its dictionary and adds it to an array
+
+				var words = [];
+				data.rows.forEach(word => {
+					words.push(word.word);
+				});
+				res.json({ message: true, count: data.rowCount, words: words });
+			}
+		});
+	},
+	getCount: (req, res) => {
+		console.log(getFormattedDate() + " | Returning total number of words");
+		client.query('SELECT word FROM xwords ORDER BY word', (err, data) => {
+			if (err) {
+				console.log("Errant request!", err);
+				res.json({ message: false, data: err });
+			} else {
+				// Returns total number of words stored in database.				
+				res.json({ message: true, count: data.rowCount });
 			}
 		});
 	},
@@ -179,12 +227,13 @@ module.exports = {
 		};
 		if (req.body['word']) {
 			console.log("Attempting to create single new word", req.body['word']);
-			var word = scrubWord(req.body['word']);
-			que = createWord(word, que);
-		} else if (req.body['words']) {
+			var word = scrubWord(req.body.word);
+			que = createWord(word, que, 1);
+
+		} else if (req.body.words) {
 			console.log("Attempting to create new words by list", req.body['words']);
 			let x = 1;
-			req.body['words'].forEach(w => {
+			req.body.words.forEach(w => {
 				let word = scrubWord(w);
 				que = createWord(word, que, x);
 				x += 6;
@@ -304,7 +353,7 @@ module.exports = {
 		});
 	},
 	show: (req, res) => {
-		const word = req.params.word;
+		var word = scrubWord(req.params.word);
 		console.log(getFormattedDate() + " | Finding word: ", word);
 
 		var text = "SELECT * FROM xwords WHERE word = $1";
@@ -316,7 +365,7 @@ module.exports = {
 				res.json({ message: false, err: err });
 			} else if (data.rowCount <= 0) {
 				// console.log("Query successful but no rows were removed");
-				res.json({ message: false, err: "Query successful but no rows were returned for word '" + word + "'. Be aware that the database is by no means comprehensive, but also case sensitive and stores words in all caps" });
+				res.json({ message: false, err: "Query successful but no rows were returned for word '" + word + "'. Be aware that the database is by no means comprehensive" });
 			} else {
 				// console.log("Word found successfully!");
 				res.json({ message: true, data: data.rows });

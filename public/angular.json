@@ -24,7 +24,7 @@
             ],
             "styles": [
               "src/styles.css",
-              "C:/Users/Geoff/Documents/GitHub/03 - MEAN/brundiges_stuff/Angular/node_modules/bootstrap/dist/css/bootstrap.min.css"
+              "node_modules/bootstrap/dist/css/bootstrap.css"
             ],
             "scripts": [],
             "es5BrowserSupport": true

@@ -1,0 +1,8 @@
+ALTER TABLE xwords ADD CONSTRAINT length_check CHECK (
+	char_length(word) > 2 AND char_length(word) <= 15
+)
+
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;

@@ -76,3 +76,4 @@ typings/
 .fusebox/
 
 /server/controllers/connection.js
+.jshintrc
